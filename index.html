@@ -181,6 +181,98 @@ button {
     background: #991111;
 }
 
+.edit-btn {
+    background: #2277cc;
+    color: white;
+    padding: 8px 12px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.edit-btn:hover {
+    background: #115599;
+}
+
+.save-btn {
+    background: #00aa66;
+    color: white;
+    padding: 8px 12px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.save-btn:hover {
+    background: #008855;
+}
+
+.cancel-btn {
+    background: #666;
+    color: white;
+    padding: 8px 12px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.cancel-btn:hover {
+    background: #444;
+}
+
+.edit-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+}
+
+.edit-fields input {
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.edit-fields input[type="text"] {
+    min-width: 180px;
+}
+
+.event-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* ===== PROGRESS BAR ===== */
+
+.progress-bar-container {
+    margin-top: 10px;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    background: #555;
+}
+
+.progress-bar-fill.upcoming {
+    background: #ffd700;
+}
+
+.progress-bar-fill.live {
+    background: #00ff88;
+}
+
+.progress-bar-fill.completed {
+    background: #666;
+}
+
 /* ===== MOBILE ===== */
 
 @media (max-width: 768px) {
@@ -339,6 +431,59 @@ function deleteBand(index) {
     render();
 }
 
+function editBand(index) {
+
+    const band = bands[index];
+
+    // Find the event in the schedule to get the schedule index
+    const schedule = buildSchedule();
+    const schedIndex = schedule.findIndex(
+        item => item.type === 'band' &&
+                item.title === band.name &&
+                item.start === band.start
+    );
+
+    if (schedIndex === -1) return;
+
+    // Populate edit fields
+    document.getElementById(`edit-name-${schedIndex}`).value = band.name;
+    document.getElementById(`edit-start-${schedIndex}`).value = band.start;
+    document.getElementById(`edit-end-${schedIndex}`).value = band.end;
+
+    // Toggle visibility
+    document.getElementById(`event-info-${schedIndex}`).style.display = 'none';
+    document.getElementById(`event-edit-${schedIndex}`).style.display = 'block';
+}
+
+function saveEdit(schedIndex, bandIndex) {
+
+    const name = document.getElementById(`edit-name-${schedIndex}`).value.trim();
+    const start = document.getElementById(`edit-start-${schedIndex}`).value;
+    const end = document.getElementById(`edit-end-${schedIndex}`).value;
+
+    if (!name || !start || !end) {
+        alert('Please complete all fields');
+        return;
+    }
+
+    bands[bandIndex].name = name;
+    bands[bandIndex].start = start;
+    bands[bandIndex].end = end;
+
+    bands.sort((a, b) =>
+        a.start.localeCompare(b.start)
+    );
+
+    saveBands();
+    render();
+}
+
+function cancelEdit(schedIndex) {
+
+    document.getElementById(`event-info-${schedIndex}`).style.display = 'block';
+    document.getElementById(`event-edit-${schedIndex}`).style.display = 'none';
+}
+
 /* ===== SCHEDULE ===== */
 
 function buildSchedule() {
@@ -396,7 +541,7 @@ function render() {
             ? 'event changeover'
             : 'event';
 
-        let deleteButton = '';
+        let actionsHtml = '';
 
         if (item.type === 'band') {
 
@@ -405,29 +550,57 @@ function render() {
                      b.start === item.start
             );
 
-            deleteButton =
-                `<button class="delete-btn"
-                    onclick="deleteBand(${bandIndex})">
-                    Delete
-                </button>`;
+            actionsHtml = `
+                <div class="event-actions">
+                    <button class="edit-btn"
+                        onclick="editBand(${bandIndex})">
+                        Edit
+                    </button>
+                    <button class="delete-btn"
+                        onclick="deleteBand(${bandIndex})">
+                        Delete
+                    </button>
+                </div>`;
         }
 
         div.innerHTML = `
             <div class="event-header">
 
-                <div>
+                <div id="event-info-${index}">
                     <div class="title">${item.title}</div>
                     <div class="time">
                         ${item.start} - ${item.end}
                     </div>
                 </div>
 
-                ${deleteButton}
+                <div id="event-edit-${index}" style="display:none;">
+                    <div class="edit-fields">
+                        <input type="text" id="edit-name-${index}" placeholder="Band Name">
+                        <input type="time" id="edit-start-${index}">
+                        <input type="time" id="edit-end-${index}">
+                        <button class="save-btn"
+                            onclick="saveEdit(${index}, ${item.type === 'band' ? bands.findIndex(b => b.name === item.title && b.start === item.start) : -1})">
+                            Save
+                        </button>
+                        <button class="cancel-btn"
+                            onclick="cancelEdit(${index})">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                ${actionsHtml}
 
             </div>
 
             <div class="countdown"
                  id="countdown-${index}">
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill"
+                     id="progress-${index}">
+                </div>
             </div>
         `;
 
@@ -470,10 +643,15 @@ function updateCountdowns() {
         const countdownEl =
             document.getElementById(`countdown-${index}`);
 
+        const progressEl =
+            document.getElementById(`progress-${index}`);
+
         const cards =
             document.querySelectorAll('.event');
 
         let html = '';
+        let progressPct = 0;
+        let progressClass = '';
 
         if (now < start) {
 
@@ -485,6 +663,9 @@ function updateCountdowns() {
                 </span>
             `;
 
+            progressPct = 0;
+            progressClass = 'upcoming';
+
             if (!nextRemaining || diff < nextRemaining) {
                 nextRemaining = diff;
                 nextEvent = item;
@@ -494,6 +675,8 @@ function updateCountdowns() {
         else if (now >= start && now <= end) {
 
             const diff = end - now;
+            const total = end - start;
+            const elapsed = now - start;
 
             html = `
                 <span class="status-live">
@@ -503,6 +686,11 @@ function updateCountdowns() {
                     in ${formatDuration(diff)}
                 </span>
             `;
+
+            progressPct = total > 0
+                ? (elapsed / total) * 100
+                : 100;
+            progressClass = 'live';
 
             cards[index].classList.add('active');
 
@@ -532,9 +720,17 @@ function updateCountdowns() {
                     Completed
                 </span>
             `;
+
+            progressPct = 100;
+            progressClass = 'completed';
         }
 
         countdownEl.innerHTML = html;
+
+        if (progressEl) {
+            progressEl.style.width = progressPct.toFixed(1) + '%';
+            progressEl.className = 'progress-bar-fill ' + progressClass;
+        }
     });
 
     const banner =
