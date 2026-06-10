@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Band Schedule Countdown</title>
-
 <style>
 * {
     box-sizing: border-box;
@@ -56,22 +55,6 @@ body {
     color: #ffd700;
     text-align: center;
     max-width: 90%;
-}
-
-#wakelock-status {
-    margin-top: 12px;
-    font-size: 0.9rem;
-    color: #00ff88;
-    text-align: center;
-    cursor: pointer;
-    user-select: none;
-    padding: 4px 12px;
-    border-radius: 4px;
-    transition: color 0.3s;
-}
-
-#wakelock-status:hover {
-    background: #222;
 }
 
 /* ===== FORM ===== */
@@ -197,98 +180,6 @@ button {
     background: #991111;
 }
 
-.edit-btn {
-    background: #2277cc;
-    color: white;
-    padding: 8px 12px;
-    margin: 0;
-    flex-shrink: 0;
-}
-
-.edit-btn:hover {
-    background: #115599;
-}
-
-.save-btn {
-    background: #00aa66;
-    color: white;
-    padding: 8px 12px;
-    margin: 0;
-    flex-shrink: 0;
-}
-
-.save-btn:hover {
-    background: #008855;
-}
-
-.cancel-btn {
-    background: #666;
-    color: white;
-    padding: 8px 12px;
-    margin: 0;
-    flex-shrink: 0;
-}
-
-.cancel-btn:hover {
-    background: #444;
-}
-
-.edit-fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-    align-items: center;
-}
-
-.edit-fields input {
-    background: #333;
-    color: white;
-    border: 1px solid #555;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 0.95rem;
-}
-
-.edit-fields input[type="text"] {
-    min-width: 180px;
-}
-
-.event-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-}
-
-/* ===== PROGRESS BAR ===== */
-
-.progress-bar-container {
-    margin-top: 10px;
-    height: 8px;
-    background: #333;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.5s ease;
-    background: #555;
-}
-
-.progress-bar-fill.upcoming {
-    background: #ffd700;
-}
-
-.progress-bar-fill.live {
-    background: #00ff88;
-}
-
-.progress-bar-fill.completed {
-    background: #666;
-}
-
 /* ===== MOBILE ===== */
 
 @media (max-width: 768px) {
@@ -334,7 +225,6 @@ button {
 <div class="timeline" id="timeline"></div>
 
 <script>
-
 let bands = JSON.parse(localStorage.getItem('bands') || '[]');
 
 let currentActiveIndex = -1;
@@ -347,116 +237,35 @@ function saveBands() {
 
 /* ===== UTILITIES ===== */
 let wakeLock = null;
-let wakeLockVideo = null;
-
-function updateWakeLockStatus() {
-    const el = document.getElementById('wakelock-status');
-    if (wakeLock || wakeLockVideo) {
-        el.innerHTML = '🔒 Screen Awake';
-        el.style.color = '#00ff88';
-    } else {
-        el.innerHTML = '⚠️ Screen May Sleep — Tap to re-enable';
-        el.style.color = '#ff6644';
-    }
-}
-
-async function requestWakeLockAPI() {
-    try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        console.log('Wake Lock active');
-
-        wakeLock.addEventListener('release', () => {
-            console.log('Wake Lock released by system');
-            wakeLock = null;
-            updateWakeLockStatus();
-            // Try to re-acquire immediately
-            requestWakeLockAPI();
-        });
-
-        updateWakeLockStatus();
-        return true;
-    } catch (err) {
-        console.warn('Wake Lock API failed:', err.message);
-        wakeLock = null;
-        updateWakeLockStatus();
-        return false;
-    }
-}
-
-function startVideoFallback() {
-    // Some systems ignore the Wake Lock API but respond to video playback
-    if (wakeLockVideo) return;
-
-    const video = document.createElement('video');
-    video.id = 'wakelock-video';
-    video.muted = true;
-    video.playsInline = true;
-    video.loop = true;
-    video.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMWlzb28AAAAQaXNvbQAAAAEAAAAQAAAAAQAAABhpc29tAAAAAgAAAAEAABhpc29tAAAAAwAAABhpc29tAAAABAAAAAEAAAAY';
-    video.style.cssText = 'position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
-    video.setAttribute('playsinline', '');
-    video.setAttribute('muted', '');
-
-    video.play().then(() => {
-        wakeLockVideo = video;
-        document.body.appendChild(video);
-        console.log('Video fallback active');
-        updateWakeLockStatus();
-    }).catch(err => {
-        console.warn('Video fallback failed:', err.message);
-        wakeLockVideo = null;
-        updateWakeLockStatus();
-    });
-}
-
-function stopVideoFallback() {
-    if (wakeLockVideo) {
-        wakeLockVideo.pause();
-        wakeLockVideo.remove();
-        wakeLockVideo = null;
-        updateWakeLockStatus();
-    }
-}
 
 async function enableWakeLock() {
-    // Try the Wake Lock API first
-    const apiOk = await requestWakeLockAPI();
+    try {
+        wakeLock = await navigator.wakeLock.request("screen");
 
-    // If API failed or isn't supported, fall back to video
-    if (!apiOk && !wakeLockVideo) {
-        startVideoFallback();
+        console.log("Wake Lock active");
+
+        wakeLock.addEventListener("release", () => {
+            console.log("Wake Lock released");
+        });
+
+    } catch (err) {
+        console.error(err);
     }
 }
-
-// Keep the wake lock alive with a periodic heartbeat
-setInterval(async () => {
-    if (document.visibilityState === 'visible') {
-        if (!wakeLock && !wakeLockVideo) {
-            console.log('Heartbeat: re-acquiring wake lock');
-            await enableWakeLock();
-        }
-    }
-}, 30000);
-
-// Re-acquire when the tab becomes visible again
-document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-        if (!wakeLock && !wakeLockVideo) {
-            console.log('Tab visible: re-acquiring wake lock');
-            await enableWakeLock();
-        }
-    }
+document.addEventListener("click", enableWakeLock, {
+    once: true
 });
 
-// Request on any user interaction (not just first click)
-document.addEventListener('click', () => {
-    if (!wakeLock && !wakeLockVideo) {
-        enableWakeLock();
-    }
-});
+document.addEventListener("visibilitychange", async () => {
 
-// Initial request
-enableWakeLock();
+    if (
+        wakeLock === null &&
+        document.visibilityState === "visible"
+    ) {
+        await enableWakeLock();
+    }
+
+});
 
 function todayDateTime(timeString) {
 
@@ -528,59 +337,6 @@ function deleteBand(index) {
     render();
 }
 
-function editBand(index) {
-
-    const band = bands[index];
-
-    // Find the event in the schedule to get the schedule index
-    const schedule = buildSchedule();
-    const schedIndex = schedule.findIndex(
-        item => item.type === 'band' &&
-                item.title === band.name &&
-                item.start === band.start
-    );
-
-    if (schedIndex === -1) return;
-
-    // Populate edit fields
-    document.getElementById(`edit-name-${schedIndex}`).value = band.name;
-    document.getElementById(`edit-start-${schedIndex}`).value = band.start;
-    document.getElementById(`edit-end-${schedIndex}`).value = band.end;
-
-    // Toggle visibility
-    document.getElementById(`event-info-${schedIndex}`).style.display = 'none';
-    document.getElementById(`event-edit-${schedIndex}`).style.display = 'block';
-}
-
-function saveEdit(schedIndex, bandIndex) {
-
-    const name = document.getElementById(`edit-name-${schedIndex}`).value.trim();
-    const start = document.getElementById(`edit-start-${schedIndex}`).value;
-    const end = document.getElementById(`edit-end-${schedIndex}`).value;
-
-    if (!name || !start || !end) {
-        alert('Please complete all fields');
-        return;
-    }
-
-    bands[bandIndex].name = name;
-    bands[bandIndex].start = start;
-    bands[bandIndex].end = end;
-
-    bands.sort((a, b) =>
-        a.start.localeCompare(b.start)
-    );
-
-    saveBands();
-    render();
-}
-
-function cancelEdit(schedIndex) {
-
-    document.getElementById(`event-info-${schedIndex}`).style.display = 'block';
-    document.getElementById(`event-edit-${schedIndex}`).style.display = 'none';
-}
-
 /* ===== SCHEDULE ===== */
 
 function buildSchedule() {
@@ -638,7 +394,7 @@ function render() {
             ? 'event changeover'
             : 'event';
 
-        let actionsHtml = '';
+        let deleteButton = '';
 
         if (item.type === 'band') {
 
@@ -647,57 +403,29 @@ function render() {
                      b.start === item.start
             );
 
-            actionsHtml = `
-                <div class="event-actions">
-                    <button class="edit-btn"
-                        onclick="editBand(${bandIndex})">
-                        Edit
-                    </button>
-                    <button class="delete-btn"
-                        onclick="deleteBand(${bandIndex})">
-                        Delete
-                    </button>
-                </div>`;
+            deleteButton =
+                `<button class="delete-btn"
+                    onclick="deleteBand(${bandIndex})">
+                    Delete
+                </button>`;
         }
 
         div.innerHTML = `
             <div class="event-header">
 
-                <div id="event-info-${index}">
+                <div>
                     <div class="title">${item.title}</div>
                     <div class="time">
                         ${item.start} - ${item.end}
                     </div>
                 </div>
 
-                <div id="event-edit-${index}" style="display:none;">
-                    <div class="edit-fields">
-                        <input type="text" id="edit-name-${index}" placeholder="Band Name">
-                        <input type="time" id="edit-start-${index}">
-                        <input type="time" id="edit-end-${index}">
-                        <button class="save-btn"
-                            onclick="saveEdit(${index}, ${item.type === 'band' ? bands.findIndex(b => b.name === item.title && b.start === item.start) : -1})">
-                            Save
-                        </button>
-                        <button class="cancel-btn"
-                            onclick="cancelEdit(${index})">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-
-                ${actionsHtml}
+                ${deleteButton}
 
             </div>
 
             <div class="countdown"
                  id="countdown-${index}">
-            </div>
-
-            <div class="progress-bar-container">
-                <div class="progress-bar-fill"
-                     id="progress-${index}">
-                </div>
             </div>
         `;
 
@@ -740,15 +468,10 @@ function updateCountdowns() {
         const countdownEl =
             document.getElementById(`countdown-${index}`);
 
-        const progressEl =
-            document.getElementById(`progress-${index}`);
-
         const cards =
             document.querySelectorAll('.event');
 
         let html = '';
-        let progressPct = 0;
-        let progressClass = '';
 
         if (now < start) {
 
@@ -760,9 +483,6 @@ function updateCountdowns() {
                 </span>
             `;
 
-            progressPct = 0;
-            progressClass = 'upcoming';
-
             if (!nextRemaining || diff < nextRemaining) {
                 nextRemaining = diff;
                 nextEvent = item;
@@ -772,8 +492,6 @@ function updateCountdowns() {
         else if (now >= start && now <= end) {
 
             const diff = end - now;
-            const total = end - start;
-            const elapsed = now - start;
 
             html = `
                 <span class="status-live">
@@ -783,11 +501,6 @@ function updateCountdowns() {
                     in ${formatDuration(diff)}
                 </span>
             `;
-
-            progressPct = total > 0
-                ? (elapsed / total) * 100
-                : 100;
-            progressClass = 'live';
 
             cards[index].classList.add('active');
 
@@ -817,17 +530,9 @@ function updateCountdowns() {
                     Completed
                 </span>
             `;
-
-            progressPct = 100;
-            progressClass = 'completed';
         }
 
         countdownEl.innerHTML = html;
-
-        if (progressEl) {
-            progressEl.style.width = progressPct.toFixed(1) + '%';
-            progressEl.className = 'progress-bar-fill ' + progressClass;
-        }
     });
 
     const banner =
@@ -880,7 +585,6 @@ setInterval(() => {
     updateCountdowns();
 
 }, 1000);
-
 </script>
 
 </body>

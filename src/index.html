@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Band Schedule Countdown</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="sticky-header">
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="next-event" id="nextEvent">
+        No events scheduled
+    </div>
+    <div id="wakelock-status">
+    🔒 Screen Awake
+</div>
+</div>
+
+<div class="form">
+    <input id="bandName" placeholder="Band Name">
+    <input id="startTime" type="time">
+    <input id="endTime" type="time">
+    <button class="add-btn" onclick="addBand()">Add Band</button>
+</div>
+
+<div class="timeline" id="timeline"></div>
+
+<script src="main.js"></script>
+
+</body>
+</html>

@@ -1,5 +1,8 @@
 **Band Schedule Countdown**
 
+https://thomassb.github.io/Stage-Band-Schedule/
+
+
 Simple web app that displays a live countdown clock and a timeline of band slots and changeovers for a single day. It's a static page you can open in a browser to add bands, view live/next events, and keep the screen awake during a show.
 
 **Features**
