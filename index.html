@@ -58,6 +58,22 @@ body {
     max-width: 90%;
 }
 
+#wakelock-status {
+    margin-top: 12px;
+    font-size: 0.9rem;
+    color: #00ff88;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: color 0.3s;
+}
+
+#wakelock-status:hover {
+    background: #222;
+}
+
 /* ===== FORM ===== */
 
 .form {
@@ -331,35 +347,116 @@ function saveBands() {
 
 /* ===== UTILITIES ===== */
 let wakeLock = null;
+let wakeLockVideo = null;
 
-async function enableWakeLock() {
-    try {
-        wakeLock = await navigator.wakeLock.request("screen");
-
-        console.log("Wake Lock active");
-
-        wakeLock.addEventListener("release", () => {
-            console.log("Wake Lock released");
-        });
-
-    } catch (err) {
-        console.error(err);
+function updateWakeLockStatus() {
+    const el = document.getElementById('wakelock-status');
+    if (wakeLock || wakeLockVideo) {
+        el.innerHTML = '🔒 Screen Awake';
+        el.style.color = '#00ff88';
+    } else {
+        el.innerHTML = '⚠️ Screen May Sleep — Tap to re-enable';
+        el.style.color = '#ff6644';
     }
 }
-document.addEventListener("click", enableWakeLock, {
-    once: true
-});
 
-document.addEventListener("visibilitychange", async () => {
+async function requestWakeLockAPI() {
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('Wake Lock active');
 
-    if (
-        wakeLock === null &&
-        document.visibilityState === "visible"
-    ) {
-        await enableWakeLock();
+        wakeLock.addEventListener('release', () => {
+            console.log('Wake Lock released by system');
+            wakeLock = null;
+            updateWakeLockStatus();
+            // Try to re-acquire immediately
+            requestWakeLockAPI();
+        });
+
+        updateWakeLockStatus();
+        return true;
+    } catch (err) {
+        console.warn('Wake Lock API failed:', err.message);
+        wakeLock = null;
+        updateWakeLockStatus();
+        return false;
     }
+}
 
+function startVideoFallback() {
+    // Some systems ignore the Wake Lock API but respond to video playback
+    if (wakeLockVideo) return;
+
+    const video = document.createElement('video');
+    video.id = 'wakelock-video';
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = true;
+    video.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMWlzb28AAAAQaXNvbQAAAAEAAAAQAAAAAQAAABhpc29tAAAAAgAAAAEAABhpc29tAAAAAwAAABhpc29tAAAABAAAAAEAAAAY';
+    video.style.cssText = 'position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+
+    video.play().then(() => {
+        wakeLockVideo = video;
+        document.body.appendChild(video);
+        console.log('Video fallback active');
+        updateWakeLockStatus();
+    }).catch(err => {
+        console.warn('Video fallback failed:', err.message);
+        wakeLockVideo = null;
+        updateWakeLockStatus();
+    });
+}
+
+function stopVideoFallback() {
+    if (wakeLockVideo) {
+        wakeLockVideo.pause();
+        wakeLockVideo.remove();
+        wakeLockVideo = null;
+        updateWakeLockStatus();
+    }
+}
+
+async function enableWakeLock() {
+    // Try the Wake Lock API first
+    const apiOk = await requestWakeLockAPI();
+
+    // If API failed or isn't supported, fall back to video
+    if (!apiOk && !wakeLockVideo) {
+        startVideoFallback();
+    }
+}
+
+// Keep the wake lock alive with a periodic heartbeat
+setInterval(async () => {
+    if (document.visibilityState === 'visible') {
+        if (!wakeLock && !wakeLockVideo) {
+            console.log('Heartbeat: re-acquiring wake lock');
+            await enableWakeLock();
+        }
+    }
+}, 30000);
+
+// Re-acquire when the tab becomes visible again
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        if (!wakeLock && !wakeLockVideo) {
+            console.log('Tab visible: re-acquiring wake lock');
+            await enableWakeLock();
+        }
+    }
 });
+
+// Request on any user interaction (not just first click)
+document.addEventListener('click', () => {
+    if (!wakeLock && !wakeLockVideo) {
+        enableWakeLock();
+    }
+});
+
+// Initial request
+enableWakeLock();
 
 function todayDateTime(timeString) {
 
